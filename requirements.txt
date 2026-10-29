@@ -1,0 +1,6 @@
+anthropic>=1.0
+keyboard
+pyperclip
+pystray
+pillow
+truststore
