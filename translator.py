@@ -12,6 +12,7 @@ import sys
 import threading
 import time
 import tkinter as tk
+from ctypes import wintypes
 from tkinter import simpledialog
 
 # 改用 Windows 憑證庫驗證 HTTPS（防毒軟體如 Norton 會攔截並重簽連線）
@@ -52,6 +53,47 @@ PROMPT_JA_TO_ZH = """你是專業的日翻中譯者。使用者是台灣人，�
 只輸出翻譯結果本身，不要加任何說明、引號或前言。"""
 
 user32 = ctypes.windll.user32
+
+MOD_KEYS = {"alt": 0x1, "ctrl": 0x2, "shift": 0x4, "win": 0x8}
+MOD_NOREPEAT = 0x4000
+WM_HOTKEY = 0x0312
+
+
+def parse_hotkey(spec):
+    """把 "ctrl+alt+j" 轉成 RegisterHotKey 用的 (modifiers, virtual-key)。"""
+    mods, vk = MOD_NOREPEAT, None
+    for part in spec.lower().replace(" ", "").split("+"):
+        if part in MOD_KEYS:
+            mods |= MOD_KEYS[part]
+        elif len(part) == 1 and part.isalnum():
+            vk = ord(part.upper())
+        elif part[:1] == "f" and part[1:].isdigit() and 1 <= int(part[1:]) <= 24:
+            vk = 0x6F + int(part[1:])
+        else:
+            raise ValueError(f"看不懂的快捷鍵：{spec}")
+    if vk is None:
+        raise ValueError(f"快捷鍵缺少主要按鍵：{spec}")
+    return mods, vk
+
+
+def listen_hotkeys(bindings, on_hotkey, on_error):
+    """在目前執行緒註冊系統快捷鍵並處理訊息迴圈。
+
+    用 Windows 的 RegisterHotKey，而不是低階鍵盤 hook：
+    hook 在睡眠喚醒或回應太慢時會被 Windows 默默移除，系統快捷鍵不會。
+    """
+    for hotkey_id, (spec, _) in enumerate(bindings, 1):
+        try:
+            mods, vk = parse_hotkey(spec)
+        except ValueError as e:
+            on_error(str(e))
+            continue
+        if not user32.RegisterHotKey(None, hotkey_id, mods, vk):
+            on_error(f"{spec.upper()} 已被其他程式占用，請在設定檔換一組快捷鍵")
+    msg = wintypes.MSG()
+    while user32.GetMessageW(ctypes.byref(msg), None, 0, 0) > 0:
+        if msg.message == WM_HOTKEY and 1 <= msg.wParam <= len(bindings):
+            on_hotkey(bindings[msg.wParam - 1][1])
 
 
 def load_config():
@@ -96,7 +138,8 @@ class Translator:
 def wait_modifiers_released(timeout=1.5):
     end = time.time() + timeout
     while time.time() < end:
-        if not any(keyboard.is_pressed(k) for k in ("ctrl", "alt", "shift")):
+        # VK_SHIFT, VK_CONTROL, VK_MENU(Alt), VK_LWIN, VK_RWIN
+        if not any(user32.GetAsyncKeyState(vk) & 0x8000 for vk in (0x10, 0x11, 0x12, 0x5B, 0x5C)):
             return
         time.sleep(0.02)
 
@@ -134,8 +177,12 @@ class App:
         self.toast = None
         self.popup = None
 
-        keyboard.add_hotkey(cfg["hotkey_reply"], lambda: self.jobs.put("reply"))
-        keyboard.add_hotkey(cfg["hotkey_read"], lambda: self.jobs.put("read"))
+        bindings = [(cfg["hotkey_reply"], "reply"), (cfg["hotkey_read"], "read")]
+        threading.Thread(
+            target=listen_hotkeys,
+            args=(bindings, self.jobs.put, lambda m: self.ui.put(("toast_error", m))),
+            daemon=True,
+        ).start()
         threading.Thread(target=self.worker, daemon=True).start()
         self.start_tray()
         self.root.after(50, self.pump_ui)
@@ -303,7 +350,6 @@ class App:
 
     def quit(self):
         self.icon.stop()
-        keyboard.unhook_all()
         self.ui.put(("quit", None))
 
     def run(self):
