@@ -6,6 +6,7 @@ Ctrl+Alt+K：把選取的日文翻成繁體中文，顯示在滑鼠旁的小視�
 
 import ctypes
 import json
+import logging
 import os
 import queue
 import sys
@@ -29,6 +30,9 @@ from PIL import Image, ImageDraw
 APP_NAME = "TeamsTranslator"
 CONFIG_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), APP_NAME)
 CONFIG_PATH = os.path.join(CONFIG_DIR, "config.json")
+LOG_PATH = os.path.join(CONFIG_DIR, "translator.log")
+
+log = logging.getLogger(APP_NAME)
 
 DEFAULT_CONFIG = {
     "api_key": "",
@@ -88,12 +92,17 @@ def listen_hotkeys(bindings, on_hotkey, on_error):
         except ValueError as e:
             on_error(str(e))
             continue
-        if not user32.RegisterHotKey(None, hotkey_id, mods, vk):
+        if user32.RegisterHotKey(None, hotkey_id, mods, vk):
+            log.info("registered hotkey %s", spec)
+        else:
+            log.warning("failed to register hotkey %s", spec)
             on_error(f"{spec.upper()} 已被其他程式占用，請在設定檔換一組快捷鍵")
     msg = wintypes.MSG()
     while user32.GetMessageW(ctypes.byref(msg), None, 0, 0) > 0:
         if msg.message == WM_HOTKEY and 1 <= msg.wParam <= len(bindings):
-            on_hotkey(bindings[msg.wParam - 1][1])
+            spec, kind = bindings[msg.wParam - 1]
+            log.info("hotkey %s pressed", spec)
+            on_hotkey(kind)
 
 
 def load_config():
@@ -207,7 +216,10 @@ class App:
             except anthropic.APIStatusError as e:
                 self.ui.put(("toast_error", f"翻譯服務錯誤（{e.status_code}）"))
             except Exception as e:  # noqa: BLE001 - 任何錯誤都要讓使用者看到
+                log.exception("job %s failed", kind)
                 self.ui.put(("toast_error", str(e)))
+            else:
+                log.info("job %s finished", kind)
             finally:
                 self.busy.release()
 
@@ -215,12 +227,15 @@ class App:
         wait_modifiers_released()
         hwnd = user32.GetForegroundWindow()
         text = copy_from_app(select_all=True)
+        log.info("reply: copied %d chars from window %s", len(text), hwnd)
         if not text.strip():
             self.ui.put(("toast_error", "輸入框是空的"))
             return
         self.ui.put(("toast", "翻譯成日文中…"))
         result = self.translator.translate(text, PROMPT_ZH_TO_JA)
         pyperclip.copy(result)
+        log.info("reply: translated to %d chars, foreground unchanged=%s",
+                 len(result), user32.GetForegroundWindow() == hwnd)
         if user32.GetForegroundWindow() == hwnd:
             keyboard.send("ctrl+a")
             time.sleep(0.05)
@@ -368,6 +383,14 @@ def main():
         ctypes.windll.shcore.SetProcessDpiAwareness(1)
     except (AttributeError, OSError):
         pass
+
+    os.makedirs(CONFIG_DIR, exist_ok=True)
+    from logging.handlers import RotatingFileHandler
+    handler = RotatingFileHandler(LOG_PATH, maxBytes=200_000, backupCount=1, encoding="utf-8")
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    log.addHandler(handler)
+    log.setLevel(logging.INFO)
+    log.info("starting")
 
     cfg = load_config()
     if not cfg["api_key"]:
