@@ -26,13 +26,16 @@ if ($code -ne 0) { throw "套件安裝失敗" }
 New-Item -ItemType Directory -Force $dest | Out-Null
 Copy-Item (Join-Path $src "translator.py") $dest -Force
 
-$startup = [Environment]::GetFolderPath("Startup")
+# 開機自動啟動 + 開始功能表（可搜尋「中日翻譯」手動啟動）
 $shell = New-Object -ComObject WScript.Shell
-$lnk = $shell.CreateShortcut((Join-Path $startup "中日翻譯.lnk"))
-$lnk.TargetPath = $pythonw
-$lnk.Arguments = "`"$(Join-Path $dest 'translator.py')`""
-$lnk.WorkingDirectory = $dest
-$lnk.Save()
+foreach ($folder in [Environment]::GetFolderPath("Startup"), [Environment]::GetFolderPath("Programs")) {
+    $lnk = $shell.CreateShortcut((Join-Path $folder "中日翻譯.lnk"))
+    $lnk.TargetPath = $pythonw
+    $lnk.Arguments = "`"$(Join-Path $dest 'translator.py')`""
+    $lnk.WorkingDirectory = $dest
+    $lnk.Description = "中日互譯快捷鍵小工具"
+    $lnk.Save()
+}
 
 Write-Host "啟動中..."
 Start-Process $pythonw -ArgumentList "`"$(Join-Path $dest 'translator.py')`"" -WorkingDirectory $dest

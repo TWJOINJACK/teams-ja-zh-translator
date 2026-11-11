@@ -22,6 +22,7 @@
    - 安裝 Python 套件（`requirements.txt`）
    - 把程式複製到 `%LOCALAPPDATA%\TeamsTranslator`
    - 在「啟動」資料夾建立捷徑，開機自動執行
+   - 在開始功能表建立「中日翻譯」捷徑，程式關掉後可以搜尋它手動啟動
    - 立即啟動
 3. 第一次啟動會請你貼上 API 金鑰。
 
