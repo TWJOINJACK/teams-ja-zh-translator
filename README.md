@@ -6,7 +6,7 @@
 
 | 快捷鍵 | 做什麼 |
 |---|---|
-| `Ctrl+Alt+J` | 把輸入框裡的中文**直接換成**商務日文（です・ます體、適度敬語），確認後按 Enter 送出 |
+| `Ctrl+Alt+L` | 把輸入框裡的中文**直接換成**商務日文（です・ます體、適度敬語），確認後按 Enter 送出 |
 | `Ctrl+Alt+K` | 把**選取**的日文翻成台灣繁體中文，顯示在滑鼠旁的小視窗（Esc 關閉） |
 
 ## 需求
@@ -44,7 +44,7 @@ python translator.py
   "api_key": "sk-ant-...",
   "model": "claude-opus-5-5",
   "effort": "low",
-  "hotkey_reply": "ctrl+alt+j",
+  "hotkey_reply": "ctrl+alt+l",
   "hotkey_read": "ctrl+alt+k"
 }
 ```
@@ -57,7 +57,7 @@ API 金鑰只存在你自己的電腦上，翻譯內容只會送到 Anthropic AP
 
 ## 注意事項
 
-- `Ctrl+Alt+J` 會先**全選**輸入框再翻譯，輸入框裡所有文字都會被替換。
+- `Ctrl+Alt+L` 會先**全選**輸入框再翻譯，輸入框裡所有文字都會被替換。
 - 如果翻譯期間你切換了視窗，日文不會被貼上，而是放在剪貼簿裡。
 - 防毒軟體（例如 Norton）會攔截 HTTPS。本工具透過 [truststore](https://pypi.org/project/truststore/) 改用 Windows 憑證庫驗證，所以一般不用另外設定。
 - 以系統管理員身分執行的視窗，快捷鍵可能抓不到。

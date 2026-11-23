@@ -1,6 +1,6 @@
 """中日互譯快捷鍵小工具（Windows）
 
-Ctrl+Alt+J：把目前輸入框的中文換成商務日文（全選 → 翻譯 → 貼回）
+Ctrl+Alt+L：把目前輸入框的中文換成商務日文（全選 → 翻譯 → 貼回）
 Ctrl+Alt+K：把選取的日文翻成繁體中文，顯示在滑鼠旁的小視窗
 """
 
@@ -38,7 +38,7 @@ DEFAULT_CONFIG = {
     "api_key": "",
     "model": "claude-opus-5-5",
     "effort": "low",
-    "hotkey_reply": "ctrl+alt+j",
+    "hotkey_reply": "ctrl+alt+l",
     "hotkey_read": "ctrl+alt+k",
 }
 
@@ -64,7 +64,7 @@ WM_HOTKEY = 0x0312
 
 
 def parse_hotkey(spec):
-    """把 "ctrl+alt+j" 轉成 RegisterHotKey 用的 (modifiers, virtual-key)。"""
+    """把 "ctrl+alt+l" 轉成 RegisterHotKey 用的 (modifiers, virtual-key)。"""
     mods, vk = MOD_NOREPEAT, None
     for part in spec.lower().replace(" ", "").split("+"):
         if part in MOD_KEYS:
